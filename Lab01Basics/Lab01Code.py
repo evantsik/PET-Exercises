@@ -34,7 +34,9 @@ def encrypt_message(K, message):
     """ Encrypt a message under a key K """
 
     plaintext = message.encode("utf8")
-    
+    aes = Cipher("aes-128-gcm")
+    iv = urandom(16)
+    ciphertext, tag = aes.quick_gcm_enc(K, iv, plaintext)
     ## YOUR CODE HERE
 
     return (iv, ciphertext, tag)
@@ -44,7 +46,12 @@ def decrypt_message(K, iv, ciphertext, tag):
 
         In case the decryption fails, throw an exception.
     """
+    aes = Cipher("aes-128-gcm")
     ## YOUR CODE HERE
+    try:
+    	plain = aes.quick_gcm_dec(K, iv, ciphertext, tag)
+    except:
+    	raise Exception("Cipher: decryption failed.")
 
     return plain.encode("utf8")
 
@@ -78,7 +85,7 @@ def is_point_on_curve(a, b, p, x, y):
     assert (isinstance(x, Bn) and isinstance(y, Bn)) \
            or (x == None and y == None)
 
-    if x == None and y == None:
+    if x is None and y is None:
         return True
 
     lhs = (y * y) % p
@@ -102,6 +109,20 @@ def point_add(a, b, p, x0, y0, x1, y1):
 
     # ADD YOUR CODE BELOW
     xr, yr = None, None
+    if x0 is None and y0 is None:
+    	xr, yr = x1, y1
+    elif x1 is None and y1 is None:
+    	xr, yr = x0, y0
+    elif (x0 != x1) or (y0 != y1):
+    	try:
+    		left, right = y0 - y1, (x0 - x1).mod_inverse(p)
+    		lam = (left*right).mod(p)
+    		xr = ((lam *lam)-x1-x0).mod(p)
+    		yr = (lam.mod_mul(x1-xr, p)).mod_sub(y1,p)
+    	except:
+    		return (None, None)
+    else:
+    	raise Exception("EC Points must not be equal")
     
     return (xr, yr)
 
@@ -119,7 +140,13 @@ def point_double(a, b, p, x, y):
 
     # ADD YOUR CODE BELOW
     xr, yr = None, None
+    if x is None and y is None:
+    	return None,None
 
+    lam = (( 3*x*x + a) * ((2 * y).mod_inverse(p)) ).mod(p)
+    xr  = (lam *lam - 2 * x).mod(p)
+    yr = (lam.mod_mul(x-xr, p)).mod_sub(y,p)
+    
     return xr, yr
 
 def point_scalar_multiplication_double_and_add(a, b, p, x, y, scalar):
@@ -140,7 +167,9 @@ def point_scalar_multiplication_double_and_add(a, b, p, x, y, scalar):
     P = (x, y)
 
     for i in range(scalar.num_bits()):
-        pass ## ADD YOUR CODE HERE
+		if scalar.is_bit_set(i) == 1:
+			Q = point_add(a,b,p,Q[0],Q[1],P[0],P[1])
+		P = point_double(a,b,p,P[0],P[1])
 
     return Q
 
@@ -166,7 +195,12 @@ def point_scalar_multiplication_montgomerry_ladder(a, b, p, x, y, scalar):
     R1 = (x, y)
 
     for i in reversed(range(0,scalar.num_bits())):
-        pass ## ADD YOUR CODE HERE
+        if scalar.is_bit_set(i) == 0:
+        	R1 = point_add(a,b,p,R0[0],R0[1],R1[0],R1[1])
+        	R0 = point_double(a,b,p,R0[0],R0[1])
+        else:
+        	R0 = point_add(a,b,p,R0[0],R0[1],R1[0],R1[1])
+        	R1 = point_double(a,b,p,R1[0],R1[1])
 
     return R0
 
