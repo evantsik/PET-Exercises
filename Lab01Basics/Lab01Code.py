@@ -229,16 +229,18 @@ def ecdsa_key_gen():
 def ecdsa_sign(G, priv_sign, message):
     """ Sign the SHA256 digest of the message using ECDSA and return a signature """
     plaintext =  message.encode("utf8")
-
-    ## YOUR CODE HERE
+    ##digest/hash
+    digest = sha256(plaintext).digest()
+    ##sign
+    sig = do_ecdsa_sign(G, priv_sign, digest)
 
     return sig
 
 def ecdsa_verify(G, pub_verify, message, sig):
     """ Verify the ECDSA signature on the message """
     plaintext =  message.encode("utf8")
-
-    ## YOUR CODE HERE
+    digest = sha256(plaintext).digest()
+    res = do_ecdsa_verify(G, pub_verify, sig, digest)
 
     return res
 
@@ -266,6 +268,7 @@ def dh_encrypt(pub, message, aliceSig = None):
         - Use the shared key to AES_GCM encrypt the message.
         - Optionally: sign the message with Alice's key.
     """
+    G, priv_dec, pub_enc = dh_get_key()
     
     ## YOUR CODE HERE
     pass
