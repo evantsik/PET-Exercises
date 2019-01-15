@@ -37,7 +37,7 @@ def encrypt_message(K, message):
     aes = Cipher("aes-128-gcm")
     iv = urandom(16)
     ciphertext, tag = aes.quick_gcm_enc(K, iv, plaintext)
-    ## YOUR CODE HERE
+
 
     return (iv, ciphertext, tag)
 
@@ -47,7 +47,7 @@ def decrypt_message(K, iv, ciphertext, tag):
         In case the decryption fails, throw an exception.
     """
     aes = Cipher("aes-128-gcm")
-    ## YOUR CODE HERE
+
     try:
     	plain = aes.quick_gcm_dec(K, iv, ciphertext, tag)
     except:
@@ -268,18 +268,38 @@ def dh_encrypt(pub, message, aliceSig = None):
         - Use the shared key to AES_GCM encrypt the message.
         - Optionally: sign the message with Alice's key.
     """
+    #fresh DH key
     G, priv_dec, pub_enc = dh_get_key()
-    
-    ## YOUR CODE HERE
-    pass
+    #fresh shared key-padding
+    shared_key, shared_y = (priv_dec*pub).get_affine()
+    padded_key = shared_key.binary()+b'0000'
+
+    #encrypt with 256 aes because of key length = 28, 4 byte pad needed
+    plaintext = message.encode("utf8")
+    aes = Cipher("aes-256-gcm")
+    iv = urandom(16)
+    ciphertext, tag = aes.quick_gcm_enc(padded_key, iv, plaintext)
+
+    return [iv, ciphertext , tag, pub_enc];
+
 
 def dh_decrypt(priv, ciphertext, aliceVer = None):
     """ Decrypt a received message encrypted using your public key, 
     of which the private key is provided. Optionally verify 
     the message came from Alice using her verification key."""
     
-    ## YOUR CODE HERE
-    pass
+    shared_key, shared_y = (priv*ciphertext[3]).get_affine()
+    padded_key = shared_key.binary()+b'0000'
+
+    aes = Cipher("aes-256-gcm")
+
+    try:
+    	plain = aes.quick_gcm_dec(padded_key,ciphertext[0],ciphertext[1],ciphertext[2])
+    except:
+    	raise Exception("Cipher: decryption failed.")
+
+    return plain.encode("utf8")  
+
 
 ## NOTE: populate those (or more) tests
 #  ensure they run using the "py.test filename" command.
@@ -287,10 +307,25 @@ def dh_decrypt(priv, ciphertext, aliceVer = None):
 #  $ py.test-2.7 --cov-report html --cov Lab01Code Lab01Code.py 
 
 def test_encrypt():
-    assert False
+    G, Bpriv, Bpub = dh_get_key()
+    message = u"Hello World!"
+    ciphertext = dh_encrypt(Bpub,message)
+    
+    assert len(ciphertext[0]) == 16
+    assert len(ciphertext[1]) == len(message)
+    assert len(ciphertext[2]) == 16
 
 def test_decrypt():
-    assert False
+    G, Bpriv, Bpub = dh_get_key()
+    message = u"Hello World!"
+    ciphertext = dh_encrypt(Bpub,message)
+    
+    assert len(ciphertext[0]) == 16
+    assert len(ciphertext[1]) == len(message)
+    assert len(ciphertext[2]) == 16
+
+    m = dh_decrypt(Bpriv,ciphertext)
+    assert m == message
 
 def test_fails():
     assert False
