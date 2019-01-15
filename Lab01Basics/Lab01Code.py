@@ -272,9 +272,10 @@ def dh_encrypt(pub, message, aliceSig = None):
     G, priv_dec, pub_enc = dh_get_key()
     #fresh shared key-padding
     shared_key, shared_y = (priv_dec*pub).get_affine()
-    padded_key = shared_key.binary()+b'0000'
-
-    #encrypt with 256 aes because of key length = 28, 4 byte pad needed
+    padded_key = shared_key.binary()
+    while len(padded_key) < 32:
+    	padded_key += b'0'
+    #encrypt with 256 aes because of key length <= 28, 4 byte pad needed
     plaintext = message.encode("utf8")
     aes = Cipher("aes-256-gcm")
     iv = urandom(16)
@@ -289,8 +290,10 @@ def dh_decrypt(priv, ciphertext, aliceVer = None):
     the message came from Alice using her verification key."""
     
     shared_key, shared_y = (priv*ciphertext[3]).get_affine()
-    padded_key = shared_key.binary()+b'0000'
-
+    padded_key = shared_key.binary()
+    while len(padded_key) < 32:
+    	padded_key += b'0'
+    	
     aes = Cipher("aes-256-gcm")
 
     try:
@@ -305,7 +308,8 @@ def dh_decrypt(priv, ciphertext, aliceVer = None):
 #  ensure they run using the "py.test filename" command.
 #  What is your test coverage? Where is it missing cases?
 #  $ py.test-2.7 --cov-report html --cov Lab01Code Lab01Code.py 
-
+from pytest import raises
+from os import urandom
 def test_encrypt():
     G, Bpriv, Bpub = dh_get_key()
     message = u"Hello World!"
@@ -328,7 +332,27 @@ def test_decrypt():
     assert m == message
 
 def test_fails():
-    assert False
+    G, Kpriv, Kpub = dh_get_key()
+    message = u"Hello World!"
+    ciphertext = dh_encrypt(Kpub, message)
+
+    dummy = list(ciphertext)
+    dummy[1] = urandom(len(dummy[1]))
+    with raises(Exception) as excinfo:
+        dh_decrypt(Kpriv,dummy)
+    assert 'decryption failed' in str(excinfo.value)
+    dummy = list(ciphertext)
+    dummy[2] = urandom(len(dummy[2]))
+    with raises(Exception) as excinfo:
+        dh_decrypt(Kpriv,dummy)
+    assert 'decryption failed' in str(excinfo.value)
+    dummy = list(ciphertext)
+    dummy[0] = urandom(len(dummy[0]))
+    with raises(Exception) as excinfo:
+        dh_decrypt(Kpriv,dummy)
+    assert 'decryption failed' in str(excinfo.value)
+
+   
 
 #####################################################
 # TASK 6 -- Time EC scalar multiplication
