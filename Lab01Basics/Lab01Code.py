@@ -272,15 +272,21 @@ def dh_encrypt(pub, message, aliceSig = None):
     G, priv_dec, pub_enc = dh_get_key()
     #fresh shared key-padding
     shared_key, shared_y = (priv_dec*pub).get_affine()
+    shared_key = shared_key.binary()
+    shared_key_16 = shared_key[0:16]
+    """
+	#encrypt with 256 aes because of key length <= 28, 4 byte pad needed.
+	#This was the first implementation because i believe its more secure but i sticked to the other to use the already implemented encrypt message of the previoous task2
     padded_key = shared_key.binary()
     while len(padded_key) < 32:
     	padded_key += b'0'
-    #encrypt with 256 aes because of key length <= 28, 4 byte pad needed
+    
     plaintext = message.encode("utf8")
     aes = Cipher("aes-256-gcm")
     iv = urandom(16)
     ciphertext, tag = aes.quick_gcm_enc(padded_key, iv, plaintext)
-
+	"""
+    iv, ciphertext, tag = encrypt_message(shared_key_16, message)
     return [iv, ciphertext , tag, pub_enc];
 
 
@@ -290,18 +296,18 @@ def dh_decrypt(priv, ciphertext, aliceVer = None):
     the message came from Alice using her verification key."""
     
     shared_key, shared_y = (priv*ciphertext[3]).get_affine()
-    padded_key = shared_key.binary()
-    while len(padded_key) < 32:
+    shared_key = shared_key.binary()
+    shared_key_16 = shared_key[0:16]
+    """while len(padded_key) < 32:
     	padded_key += b'0'
     	
     aes = Cipher("aes-256-gcm")
+	"""
 
-    try:
-    	plain = aes.quick_gcm_dec(padded_key,ciphertext[0],ciphertext[1],ciphertext[2])
-    except:
-    	raise Exception("Cipher: decryption failed.")
+    plain = decrypt_message(shared_key_16,ciphertext[0],ciphertext[1],ciphertext[2])
+    
 
-    return plain.encode("utf8")  
+    return plain  
 
 
 ## NOTE: populate those (or more) tests
@@ -363,6 +369,28 @@ def test_fails():
 #              scalar sizes)
 #           - Print reports on timing dependencies on secrets.
 #           - Fix one implementation to not leak information.
-
+import time
 def time_scalar_mul():
-    pass
+   """ time1 = time.clock()
+    
+    from pytest import raises
+    from petlib.ec import EcGroup, EcPt
+    G = EcGroup(713) # NIST curve
+    d = G.parameters()
+    a, b, p = d["a"], d["b"], d["p"]
+    g = G.generator()
+    gx0, gy0 = g.get_affine()
+
+    r = G.order().random()
+
+    gx2, gy2 = (r*g).get_affine()
+
+
+    x2, y2 = point_scalar_multiplication_double_and_add(a, b, p, gx0, gy0, r)
+    assert is_point_on_curve(a, b, p, x2, y2)
+    assert gx2 == x2
+    assert gy2 == y2
+
+    time2 = time.clock()
+    print(time2-time1)
+    assert time2 == time1"""
