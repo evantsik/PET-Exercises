@@ -336,14 +336,15 @@ def test_encrypt():
 
 def test_decrypt():
     G, Bpriv, Bpub = dh_get_key()
+    G, Apriv, Apub = dh_get_key()
     message = u"Hello World!"
-    ciphertext = dh_encrypt(Bpub,message,Bpriv)
+    ciphertext = dh_encrypt(Bpub,message,Apriv)
     
     assert len(ciphertext[0]) == 16
     assert len(ciphertext[1]) == len(message)
     assert len(ciphertext[2]) == 16
 
-    Verify_key = [G,Bpub]
+    Verify_key = [G,Apub]
     m = dh_decrypt(Bpriv,ciphertext,Verify_key)
     assert m[0] == message
     ##signature must be valid/true
@@ -351,6 +352,7 @@ def test_decrypt():
 
 def test_fails():
     G, Kpriv, Kpub = dh_get_key()
+    G, Apriv, Apub = dh_get_key()
     message = u"Hello World!"
     ciphertext = dh_encrypt(Kpub, message)
 
@@ -370,7 +372,7 @@ def test_fails():
         dh_decrypt(Kpriv,dummy)
     assert 'decryption failed' in str(excinfo.value)
     
-    Verify_key = [G,Kpub]
+    Verify_key = [G,Apub]
     m = dh_decrypt(Kpriv,ciphertext,Verify_key)
     ##signature must be false since we didnt sign
     assert m[1] == False
