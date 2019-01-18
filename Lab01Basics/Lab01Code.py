@@ -268,12 +268,6 @@ def dh_encrypt(pub, message, aliceSig = None):
         - Use the shared key to AES_GCM encrypt the message.
         - Optionally: sign the message with Alice's key.
     """
-    #fresh DH key
-    G, priv_dec, pub_enc = dh_get_key()
-    #fresh shared key-padding
-    shared_key, shared_y = (priv_dec*pub).get_affine()
-    shared_key = shared_key.binary()
-    shared_key_16 = shared_key[0:16]
     """
 	#encrypt with 256 aes because of key length <= 28, 4 byte pad needed.
 	#This was the first implementation because i believe its more secure but i sticked to the other to use the already implemented encrypt message of the previoous task2
@@ -286,8 +280,19 @@ def dh_encrypt(pub, message, aliceSig = None):
     iv = urandom(16)
     ciphertext, tag = aes.quick_gcm_enc(padded_key, iv, plaintext)
 	"""
+	#fresh DH key
+    G, priv_dec, pub_enc = dh_get_key()
+    #fresh shared key. The shared secret is the x co-ordinate of the calculated point dAdBG.
+    shared_key, shared_y = (priv_dec*pub).get_affine()
+    shared_key = shared_key.binary()
+    shared_key_16 = shared_key[0:16]
     iv, ciphertext, tag = encrypt_message(shared_key_16, message)
-    return [iv, ciphertext , tag, pub_enc];
+    #signature
+    sig = None
+    if not (aliceSig is None) :
+        sig = ecdsa_sign(G, aliceSig, message)
+    
+    return [iv, ciphertext , tag, pub_enc, sig];
 
 
 def dh_decrypt(priv, ciphertext, aliceVer = None):
@@ -298,6 +303,7 @@ def dh_decrypt(priv, ciphertext, aliceVer = None):
     shared_key, shared_y = (priv*ciphertext[3]).get_affine()
     shared_key = shared_key.binary()
     shared_key_16 = shared_key[0:16]
+    #decrypt with 256 aes
     """while len(padded_key) < 32:
     	padded_key += b'0'
     	
@@ -305,9 +311,12 @@ def dh_decrypt(priv, ciphertext, aliceVer = None):
 	"""
 
     plain = decrypt_message(shared_key_16,ciphertext[0],ciphertext[1],ciphertext[2])
-    
+    #signature verify
+    ver = False
+    if not (aliceVer is None) and not (ciphertext[4] is None):
+        ver = ecdsa_verify(aliceVer[0], aliceVer[1], plain, ciphertext[4])
 
-    return plain  
+    return [plain, ver]  
 
 
 ## NOTE: populate those (or more) tests
@@ -328,14 +337,17 @@ def test_encrypt():
 def test_decrypt():
     G, Bpriv, Bpub = dh_get_key()
     message = u"Hello World!"
-    ciphertext = dh_encrypt(Bpub,message)
+    ciphertext = dh_encrypt(Bpub,message,Bpriv)
     
     assert len(ciphertext[0]) == 16
     assert len(ciphertext[1]) == len(message)
     assert len(ciphertext[2]) == 16
 
-    m = dh_decrypt(Bpriv,ciphertext)
-    assert m == message
+    Verify_key = [G,Bpub]
+    m = dh_decrypt(Bpriv,ciphertext,Verify_key)
+    assert m[0] == message
+    ##signature must be valid/true
+    assert m[1]
 
 def test_fails():
     G, Kpriv, Kpub = dh_get_key()
@@ -357,7 +369,15 @@ def test_fails():
     with raises(Exception) as excinfo:
         dh_decrypt(Kpriv,dummy)
     assert 'decryption failed' in str(excinfo.value)
+    
+    Verify_key = [G,Kpub]
+    m = dh_decrypt(Kpriv,ciphertext,Verify_key)
+    ##signature must be false since we didnt sign
+    assert m[1] == False
 
+    m = dh_decrypt(Kpriv,ciphertext)
+    ##signature must be false since we didnt sign and we didnt verify
+    assert m[1] == False
    
 
 #####################################################
