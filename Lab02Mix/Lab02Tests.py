@@ -161,6 +161,34 @@ def test_Alice_encode_1_hop():
     assert out[0][0] == address
     assert out[0][1] == message
 
+@pytest.mark.task33
+def test_Alice_encode_2_hop():
+    """
+    Test sending a multi-hop message through 1-hop
+    """
+
+    from os import urandom
+
+    G = EcGroup()
+    g = G.generator()
+    o = G.order()
+
+    private_keys = [o.random() for _ in range(2)]
+    public_keys  = [pk * g for pk in private_keys]
+
+    address = b"Alice"
+    message = b"Dear Alice,\nHello!\nBob"
+
+    m1 = mix_client_n_hop(public_keys, address, message)
+    print("1st")
+    out = mix_server_n_hop(private_keys[0], [m1])
+    print("2nd")
+    out = mix_server_n_hop(private_keys[1], out, final=True)
+
+    assert len(out) == 1
+    assert out[0][0] == address
+    assert out[0][1] == message
+
 @pytest.mark.task3
 def test_Alice_encode_3_hop():
     """
@@ -180,7 +208,9 @@ def test_Alice_encode_3_hop():
     message = b"Dear Alice,\nHello!\nBob"
 
     m1 = mix_client_n_hop(public_keys, address, message)
+    print("1st")
     out = mix_server_n_hop(private_keys[0], [m1])
+    print("2nd")
     out = mix_server_n_hop(private_keys[1], out)
     out = mix_server_n_hop(private_keys[2], out, final=True)
 
