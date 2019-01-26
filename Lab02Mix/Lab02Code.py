@@ -217,15 +217,16 @@ def mix_server_n_hop(private_key, message_list, final=False):
 
         ## Check the HMAC
         h = Hmac(b"sha512", hmac_key)
+        print(hmac_key)
 
         for other_mac in msg.hmacs[1:]:
             h.update(other_mac)
 
         h.update(msg.address)
         h.update(msg.message)
-        print("mac key server: "+hmac_key)
+        
         expected_mac = h.digest()
-        print(expected_mac[:20])
+        ##print(expected_mac[:20])
         if not secure_compare(msg.hmacs[0], expected_mac[:20]):
             raise Exception("HMAC check failure")
 
@@ -288,7 +289,6 @@ def mix_client_n_hop(public_keys, address, message):
     address_cipher = None
     message_cipher = None
     shared_element = None
-
     for i in range(len(public_keys)):
     	## First get a shared key
     	
@@ -304,27 +304,16 @@ def mix_client_n_hop(public_keys, address, message):
         blinding_factor = Bn.from_binary(key_material[48:])
         private_key = blinding_factor * private_key
 
-        print("mac keys client: "+hmac_key)
-        # Encrypt address & message
+        # Encrypt address & message 
         iv = b"\x00"*16
         
-        if i ==0:
+        if i==0:
         	address_cipher = aes_ctr_enc_dec(address_key, iv, address_plaintext)
         	message_cipher = aes_ctr_enc_dec(message_key, iv, message_plaintext)
         else:
         	address_cipher = aes_ctr_enc_dec(address_key, iv, address_cipher)
         	message_cipher = aes_ctr_enc_dec(message_key, iv, message_cipher)
-
-
-        h = Hmac(b"sha512", hmac_key)
-        for other_mac in hmacs:
-            h.update(other_mac)
-
-        h.update(address_cipher)
-        h.update(message_cipher)
-        hmacs.append(h.digest()[:20])
-        """
-
+ 
         # encrypt hmacs
         new_hmacs = []
 
@@ -335,14 +324,24 @@ def mix_client_n_hop(public_keys, address, message):
             hmac_plaintext = aes_ctr_enc_dec(hmac_key, iv, other_mac)
             new_hmacs += [hmac_plaintext]  
 
+        h = Hmac(b"sha512", hmac_key)
+        if i==0:
+        	print(hmac_key+"ee")
+
+        for other_mac in new_hmacs:
+            h.update(other_mac)
+
+        h.update(address_cipher)
+        h.update(message_cipher)
         
+        digest  = h.digest()
+        digest	= digest[:20]
 
-
-        new_hmacs.append(h.digest()[:20])
+        new_hmacs += [digest]
         hmacs = new_hmacs
-        """
-
-
+      
+    hmacs = hmacs[::-1]
+    
     return NHopMixMessage(client_public_key, hmacs, address_cipher, message_cipher)
 
 
