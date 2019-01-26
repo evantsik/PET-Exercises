@@ -217,16 +217,16 @@ def mix_server_n_hop(private_key, message_list, final=False):
 
         ## Check the HMAC
         h = Hmac(b"sha512", hmac_key)
-        print(hmac_key)
 
         for other_mac in msg.hmacs[1:]:
             h.update(other_mac)
+            #print(other_mac)
 
         h.update(msg.address)
         h.update(msg.message)
-        
         expected_mac = h.digest()
-        ##print(expected_mac[:20])
+        #print(expected_mac[:20])
+        #print(msg.hmacs[0])
         if not secure_compare(msg.hmacs[0], expected_mac[:20]):
             raise Exception("HMAC check failure")
 
@@ -237,7 +237,7 @@ def mix_server_n_hop(private_key, message_list, final=False):
         new_hmacs = []
         for i, other_mac in enumerate(msg.hmacs[1:]):
             # Ensure the IV is different for each hmac
-            iv = pack("H14s", i, b"\x00"*14)
+            iv = pack("H14s", i+1, b"\x00"*14)
 
             hmac_plaintext = aes_ctr_enc_dec(hmac_key, iv, other_mac)
             new_hmacs += [hmac_plaintext]
@@ -286,6 +286,11 @@ def mix_client_n_hop(public_keys, address, message):
     client_public_key  = private_key * G.generator()
 
     hmacs = []
+    mackeys = []
+    mkeys = []
+    akeys = []
+    aciphers = []
+    mciphers = []
     address_cipher = None
     message_cipher = None
     shared_element = None
@@ -299,49 +304,61 @@ def mix_client_n_hop(public_keys, address, message):
         hmac_key = key_material[:16]
         address_key = key_material[16:32]
         message_key = key_material[32:48]
-       
+
+        mackeys += [hmac_key]
+        akeys += [address_key]
+        mkeys += [message_key]
         # Extract a blinding factor for the new private key
         blinding_factor = Bn.from_binary(key_material[48:])
         private_key = blinding_factor * private_key
 
-        # Encrypt address & message 
+
+    for i in range(len(public_keys)):
+
+    	# Encrypt address & message 
         iv = b"\x00"*16
         
         if i==0:
-        	address_cipher = aes_ctr_enc_dec(address_key, iv, address_plaintext)
-        	message_cipher = aes_ctr_enc_dec(message_key, iv, message_plaintext)
+        	address_cipher = aes_ctr_enc_dec(akeys[len(public_keys)-1-i], iv, address_plaintext)
+        	message_cipher = aes_ctr_enc_dec(mkeys[len(public_keys)-1-i], iv, message_plaintext)
         else:
-        	address_cipher = aes_ctr_enc_dec(address_key, iv, address_cipher)
-        	message_cipher = aes_ctr_enc_dec(message_key, iv, message_cipher)
- 
-        # encrypt hmacs
-        new_hmacs = []
+        	address_cipher = aes_ctr_enc_dec(akeys[len(public_keys)-1-i], iv, address_cipher)
+        	message_cipher = aes_ctr_enc_dec(mkeys[len(public_keys)-1-i], iv, message_cipher)
 
+        mciphers += [message_cipher]
+        aciphers += [address_cipher]
+
+
+    for i in range(len(public_keys)):
+
+        # encrypt hmacs. It is done seperately since i need all the ciphertext to calculate the macs correctly
+        # i use the mac keys in reverse order because for the last ciphertext,i have to use the 1st key
+        new_hmacs = []
         for j, other_mac in enumerate(hmacs):
             # Ensure the IV is different for each hmac
-            iv = pack("H14s", j, b"\x00"*14)
+            iv = pack("H14s", j+1, b"\x00"*14)
 
-            hmac_plaintext = aes_ctr_enc_dec(hmac_key, iv, other_mac)
+            hmac_plaintext = aes_ctr_enc_dec(mackeys[len(public_keys)-1-i], iv, other_mac)
             new_hmacs += [hmac_plaintext]  
 
-        h = Hmac(b"sha512", hmac_key)
-        if i==0:
-        	print(hmac_key+"ee")
 
-        for other_mac in new_hmacs:
-            h.update(other_mac)
+        h = Hmac(b"sha512", mackeys[len(public_keys)-1-i])
+        # calculating the new digest
+        new_hmacs = new_hmacs[::-1]
+        for other_mac in reversed(new_hmacs):
+                h.update(other_mac) 
 
-        h.update(address_cipher)
-        h.update(message_cipher)
+        h.update(aciphers[i])
+        h.update(mciphers[i])
         
         digest  = h.digest()
         digest	= digest[:20]
 
         new_hmacs += [digest]
-        hmacs = new_hmacs
-      
-    hmacs = hmacs[::-1]
-    
+        hmacs = new_hmacs[::-1]
+
+    hmacs = new_hmacs[::-1]
+
     return NHopMixMessage(client_public_key, hmacs, address_cipher, message_cipher)
 
 
