@@ -237,7 +237,7 @@ def mix_server_n_hop(private_key, message_list, final=False):
         new_hmacs = []
         for i, other_mac in enumerate(msg.hmacs[1:]):
             # Ensure the IV is different for each hmac
-            iv = pack("H14s", i+1, b"\x00"*14)
+            iv = pack("H14s", i, b"\x00"*14)
 
             hmac_plaintext = aes_ctr_enc_dec(hmac_key, iv, other_mac)
             new_hmacs += [hmac_plaintext]
@@ -336,7 +336,7 @@ def mix_client_n_hop(public_keys, address, message):
         new_hmacs = []
         for j, other_mac in enumerate(hmacs):
             # Ensure the IV is different for each hmac
-            iv = pack("H14s", j+1, b"\x00"*14)
+            iv = pack("H14s", j, b"\x00"*14)
 
             hmac_plaintext = aes_ctr_enc_dec(mackeys[len(public_keys)-1-i], iv, other_mac)
             new_hmacs += [hmac_plaintext]  
