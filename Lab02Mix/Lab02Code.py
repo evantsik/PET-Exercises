@@ -406,10 +406,21 @@ def analyze_trace(trace, target_number_of_friends, target=0):
     return the list of receiver identifiers that are the most likely 
     friends of the target.
     """
+    possible_friends = Counter()
+    #find all the targets that alice sent messages to alongside with the messages she sent to them
+    for senders, receivers in trace:
+        if target in senders:
+            for receiver in receivers:
+                possible_friends[receiver] +=1
 
-    ## ADD CODE HERE
+    friends = []
+    #from the possible friends take the first n (target_number_of_friends) most common. 
+    #.most_common returns the pairs sorted (according to the frequency) so the first friend will be the most common one etc.
+    for friend,frequency in possible_friends.most_common(target_number_of_friends):
+    	friends += [friend]
 
-    return []
+    return friends
+
 
 ## TASK Q1 (Question 1): The mix packet format you worked on uses AES-CTR with an IV set to all zeros. 
 #                        Explain whether this is a security concern and justify your answer.
