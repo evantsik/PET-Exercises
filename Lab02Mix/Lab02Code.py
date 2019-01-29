@@ -425,12 +425,19 @@ def analyze_trace(trace, target_number_of_friends, target=0):
 ## TASK Q1 (Question 1): The mix packet format you worked on uses AES-CTR with an IV set to all zeros. 
 #                        Explain whether this is a security concern and justify your answer.
 
-""" TODO: Your answer HERE """
+""" The main problem is that we use the same key,iv pair to encrypt 2 messages (mesage and address)
+	So for example if both adrress and message have the same first bits, the ciphertext would be 
+	identical=> compromised security. Also the iv should never be a fixed value (its like nonce).
+	Lastly with zero as iv the xor (inside the aes-ctr mode) is useless (something XOR 0 = something) 
+ """
 
 
 ## TASK Q2 (Question 2): What assumptions does your implementation of the Statistical Disclosure Attack 
 #                        makes about the distribution of traffic from non-target senders to receivers? Is
 #                        the correctness of the result returned dependent on this background distribution?
 
-""" TODO: Your answer HERE """
+""" Our implementation assumes that we will have a normal distribution, therefore we won't have "a peak" (a non-target sender
+	to send many messages to a single reciever). The correctness of our result is independent of this assumption, because we are
+	only interested for the messages that our target sends (no matter how many messages all the others send, my algorithm doesn't take 
+	them into account).  """
 
