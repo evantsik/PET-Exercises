@@ -428,7 +428,12 @@ def analyze_trace(trace, target_number_of_friends, target=0):
 """ The main problem is that we use the same key,iv pair to encrypt 2 messages (mesage and address)
 	So for example if both adrress and message have the same first bits, the ciphertext would be 
 	identical=> compromised security. Also the iv should never be a fixed value (its like nonce).
-	Lastly with zero as iv the xor (inside the aes-ctr mode) is useless (something XOR 0 = something) 
+
+	Generally in CTR mode we combine an IV (with a counter concatenated at the end) with the key and then the result will be
+	XORed with the plaintext. The same combination of IV and Key will produce the same byte sequence. Therefore the security
+	breaks under chosen-plaintext attack. Therefore, we should use a random iv in every encryption.
+	
+	Also we hould note that every IV value is equally secure. That's true for IV=0, if that's never re-used.
  """
 
 
