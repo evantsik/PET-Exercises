@@ -425,15 +425,15 @@ def analyze_trace(trace, target_number_of_friends, target=0):
 ## TASK Q1 (Question 1): The mix packet format you worked on uses AES-CTR with an IV set to all zeros. 
 #                        Explain whether this is a security concern and justify your answer.
 
-""" The main problem is that we use the same key,iv pair to encrypt 2 messages (mesage and address)
-	So for example if both adrress and message have the same first bits, the ciphertext would be 
-	identical=> compromised security. Also the iv should never be a fixed value (its like nonce).
+""" The main problem is that when we use the same key,iv pair to encrypt 2 messages.
+	So for example if both adrress and message used the same key, the ciphertexts could 
+	compromise the security. Also the iv shouldn't be a fixed value (its like nonce).
 
 	Generally in CTR mode we combine an IV (with a counter concatenated at the end) with the key and then the result will be
 	XORed with the plaintext. The same combination of IV and Key will produce the same byte sequence. Therefore the security
-	breaks under chosen-plaintext attack. Therefore, we should use a random iv in every encryption.
+	breaks under chosen-plaintext attack. Therefore, we should use a random iv in every encryption (and probably another key).
 	
-	Also we hould note that every IV value is equally secure. That's true for IV=0, if that's never re-used.
+	Also we should note that every IV value is equally secure. That's true for IV=0, if that's never re-used (with the same key).
  """
 
 
@@ -441,8 +441,11 @@ def analyze_trace(trace, target_number_of_friends, target=0):
 #                        makes about the distribution of traffic from non-target senders to receivers? Is
 #                        the correctness of the result returned dependent on this background distribution?
 
-""" Our implementation assumes that we will have a normal distribution, therefore we won't have "a peak" (a non-target sender
-	to send many messages to a single reciever). The correctness of our result is independent of this assumption, because we are
-	only interested for the messages that our target sends (no matter how many messages all the others send, my algorithm doesn't take 
-	them into account).  """
+""" Our implementation assumes that we will have a normal distribution, therefore we won't have "a peak" (non-target senders
+	to send many messages to a single reciever). The correctness of our result depends on this assumption. The main problem is that
+	in our trace we have senders,recievers (more than one in both sets). So for every pair, where Alice is one of the senders, we
+	add all of the recievers as possible friends. Therefore in case the distribution is not normal we might had a pairs like:
+	senders(0,1,2,3,4), recievers(3,5,5,5,5). (lets say that Alice(0) sent to 3). We might then think that Alice's friend is 5 when in
+	fact her friend is 3. So in generall if we have a bad distribution, we will have wrong results.
+	  """
 
