@@ -425,9 +425,8 @@ def analyze_trace(trace, target_number_of_friends, target=0):
 ## TASK Q1 (Question 1): The mix packet format you worked on uses AES-CTR with an IV set to all zeros. 
 #                        Explain whether this is a security concern and justify your answer.
 
-""" The main problem is that when we use the same key,iv pair to encrypt 2 messages.
-	So for example if both adrress and message used the same key, the ciphertexts could 
-	compromise the security. Also the iv shouldn't be a fixed value (its like nonce).
+""" The main problem is when we use the same key,iv pair to encrypt 2 messages. So for example if both adrress and message 
+	used the same key, the ciphertexts would be compromised. Also the iv shouldn't be a fixed value (its like nonce).
 
 	Generally in CTR mode we combine an IV (with a counter concatenated at the end) with the key and then the result will be
 	XORed with the plaintext. The same combination of IV and Key will produce the same byte sequence. Therefore the security
@@ -444,8 +443,9 @@ def analyze_trace(trace, target_number_of_friends, target=0):
 """ Our implementation assumes that we will have a normal distribution, therefore we won't have "a peak" (non-target senders
 	to send many messages to a single reciever). The correctness of our result depends on this assumption. The main problem is that
 	in our trace we have senders,recievers (more than one in both sets). So for every pair, where Alice is one of the senders, we
-	add all of the recievers as possible friends. Therefore in case the distribution is not normal we might had a pairs like:
-	senders(0,1,2,3,4), recievers(3,5,5,5,5). (lets say that Alice(0) sent to 3). We might then think that Alice's friend is 5 when in
-	fact her friend is 3. So in generall if we have a bad distribution, we will have wrong results.
+	add all of the recievers as possible friends. Therefore in case the distribution is not normal we might had some/many pairs like:
+	senders(0,1,2,3,4), recievers(3,5,5,5,5). Lets say that Alice(0) was senting to 3 and everyone else was sending to 5. 
+	We might then think that Alice's friend is 5 (that's how the algorithm works) when in fact her friend is 3. So in generall if we 
+	have a bad distribution, we might have wrong results.
 	  """
 
