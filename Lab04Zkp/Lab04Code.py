@@ -51,7 +51,15 @@ def proveKey(params, priv, pub):
     """  
     (G, g, hs, o) = params
     
-    ## YOUR CODE HERE:
+    w = o.random()
+    W = w*g
+    Cstring = b",".join([hexlify(x.export()) for x in [g,W]])
+    Chash =  sha256(Cstring).digest()
+    c =  Bn.from_binary(Chash)
+    r = w - c*priv
+
+
+
     
     return (c, r)
 
@@ -91,7 +99,15 @@ def proveCommitment(params, C, r, secrets):
     (G, g, (h0, h1, h2, h3), o) = params
     x0, x1, x2, x3 = secrets
 
-    ## YOUR CODE HERE:
+    w0,w1,w2,w3,wr = o.random(), o.random(), o.random(), o.random(), o.random()
+    W = w0*h0 + w1*h1 + w2*h2 + w3*h3 + wr*g 
+
+    Cstring = b",".join([hexlify(x.export()) for x in [g,h0, h1, h2, h3,W]])
+    Chash =  sha256(Cstring).digest()
+    c =  Bn.from_binary(Chash)
+    r0,r1,r2,r3,rr = w0-c*x0 , w1-c*x1, w2-c*x2, w3-c*x3,  wr-c*r
+
+    responses = r0,r1,r2,r3,rr
 
     return (c, responses)
 
@@ -137,10 +153,12 @@ def verifyDLEquality(params, K, L, proof):
     """ Return whether the verification of equality of two discrete logarithms succeeded. """ 
     (G, g, (h0, h1, h2, h3), o) = params
     c, r = proof
+ 
+    C1 = r*g + c*K
+    C2 = r*h0 +c*L
 
-    ## YOUR CODE HERE:
 
-    return # YOUR RETURN HERE
+    return c == to_challenge([g,h0,C1,C2])
 
 #####################################################
 # TASK 4 -- Prove correct encryption and knowledge of 
@@ -163,7 +181,15 @@ def proveEnc(params, pub, Ciphertext, k, m):
     (G, g, (h0, h1, h2, h3), o) = params
     a, b = Ciphertext
 
-    ## YOUR CODE HERE:
+    w0, w1 = o.random() , o.random()
+    W0 = w0*g
+    W1 = w1*h0 + w0*pub
+
+#Inside the challenge we must include the pub key to ensure that we used it for the cihertext. 
+    c = to_challenge([g,h0,pub,W0,W1,a,b])
+
+    rk = (w0 - c*k)%o
+    rm = (w1 - c*m)%o
 
     return (c, (rk, rm))
 
@@ -172,10 +198,14 @@ def verifyEnc(params, pub, Ciphertext, proof):
     (G, g, (h0, h1, h2, h3), o) = params
     a, b = Ciphertext    
     (c, (rk, rm)) = proof
+#Ck = w0*g - c*k*g +c*a = w0*g = W0. Simmilar for Cm
+    Ck = rk*g + c*a
+    Cm = rm*h0 + c*b + rk*pub
 
-    ## YOUR CODE HERE:
 
-    return ## YOUR RETURN HERE
+    challenge = to_challenge([g,h0,pub,Ck,Cm,a,b])
+
+    return c == challenge
 
 
 #####################################################
@@ -198,17 +228,32 @@ def prove_x0eq10x1plus20(params, C, x0, x1, r):
     """ Prove C is a commitment to x0 and x1 and that x0 = 10 x1 + 20. """
     (G, g, (h0, h1, h2, h3), o) = params
 
-    ## YOUR CODE HERE:
+    w0, w1 = o.random() , o.random()
 
-    return ## YOUR RETURN HERE
+    W0 = w0*g
+    W1 = w1*h1
+    W2 = w1*10*h0
+
+    c = to_challenge([g,h0,h1,W0+W1+W2])
+
+    r1 = (w1 - c*x1)%o
+    r2 = (w0 - c*r)%o
+
+
+    return (c,(r1,r2))
 
 def verify_x0eq10x1plus20(params, C, proof):
     """ Verify that proof of knowledge of C and x0 = 10 x1 + 20. """
     (G, g, (h0, h1, h2, h3), o) = params
 
-    ## YOUR CODE HERE:
+    (c,(r1,r2)) = proof
+    W1 = r1*h1
+    W2 = r2*g
+    Cc = c*(C - 20*h0)
+    W3 = r1*10*h0
+    challenge = Cc + W1 + W2 + W3
 
-    return ## YOUR RETURN HERE
+    return c == to_challenge([g,h0,h1,challenge])
 
 #####################################################
 # TASK 6 -- (OPTIONAL) Prove that a ciphertext is either 0 or 1
@@ -224,19 +269,65 @@ def binencrypt(params, pub, m):
 
 def provebin(params, pub, Ciphertext, k, m):
     """ Prove a ciphertext is valid and encrypts a binary value either 0 or 1. """
-    pass
+    assert m in [0, 1]
+    (G, g, (h0, h1, h2, h3), o) = params
+    a, b = Ciphertext
+
+    w0, w1 = o.random() , o.random()
+    W0 = w0*g
+    W1 = w1*h0 + w0*pub
+    """ added the message itself to the challenge """
+    c = to_challenge([g,h0,pub,W0,W1,a,b,m])
+
+    rk = (w0 - c*k)%o
+    rm = (w1 - c*m)%o
+
+    return (c, (rk, rm))
 
 def verifybin(params, pub, Ciphertext, proof):
     """ verify that proof that a cphertext is a binary value 0 or 1. """
-    pass
+    (G, g, (h0, h1, h2, h3), o) = params
+    a, b = Ciphertext    
+    (c, (rk, rm)) = proof
+
+    Ck = rk*g + c*a
+    Cm = rm*h0 + c*b + rk*pub
+
+    """ ensures that the message will be either 0 or 1 because the c should
+    match one of the 2 challenges """
+    challenge1 = to_challenge([g,h0,pub,Ck,Cm,a,b,0])
+    challenge2 = to_challenge([g,h0,pub,Ck,Cm,a,b,1])
+
+    return c == challenge1 or c == challenge2
 
 def test_bin_correct():
     """ Test that a correct proof verifies """
-    pass
+    params = setup()
+
+    priv, pub = keyGen(params)
+
+    k, ciphertext = encrypt(params, pub, 0)
+    proof = proveEnc(params, pub, ciphertext, k, 0)
+    assert verifyEnc(params, pub, ciphertext, proof)
+
+    params1 = setup()
+    priv1, pub1 = keyGen(params1)
+
+    k1, ciphertext1 = encrypt(params1, pub1, 1)
+    proof1 = proveEnc(params1, pub1, ciphertext1, k1, 1)
+    assert verifyEnc(params1, pub1, ciphertext1, proof1)
 
 def test_bin_incorrect():
     """ Prove that incorrect proofs fail. """
-    pass
+    params = setup()
+
+    priv, pub = keyGen(params)
+
+    k, ciphertext = encrypt(params, pub, 1)
+    _, ciphertext2 = encrypt(params, pub, 0)
+
+    proof = proveEnc(params, pub, ciphertext, k, 1)
+    assert not verifyEnc(params, pub, ciphertext2, proof)
 
 #####################################################
 # TASK Q1 - Answer the following question:
@@ -266,7 +357,10 @@ def test_bin_incorrect():
 #
 # Hint: Look at "test_prove_something" too.
 
-""" TODO: Your answer here. """
+""" Verifier can verify proof of knowledge of 1)challenge c and 2)secret y.
+	Without the knowledge of c or y, the prover wouldn't be able to build c2 = c - c1 
+	and ry = wy - c2 * y. Moreover because of the addition c = c1 + c2, the verifier
+	can be sure that the challenge c verifies both KX and KY commitments. """
 
 def prove_something(params, KX, KY, y):
     (G, g, _, o) = params

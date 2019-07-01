@@ -139,3 +139,8 @@ def test_proveRel_incorrect():
     C, x0, x1, r = relation(params, 20)
     proof = prove_x0eq10x1plus20(params, C, x1, x0, r)
     assert not verify_x0eq10x1plus20(params, C, proof)
+
+@pytest.mark.task6
+def test_bin():
+    test_bin_correct();
+    test_bin_incorrect();

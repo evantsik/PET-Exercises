@@ -143,5 +143,7 @@ def test_badpub():
 def test_poll():
     votes = [1, 0, 1, 0, 1, 1, 0, 1, 1, 1]
     v0, v1 = simulate_poll(votes)
+    print(v0)
+    print(v1)
     assert v0 == 3
     assert v1 == 7

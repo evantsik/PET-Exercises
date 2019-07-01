@@ -90,7 +90,16 @@ def credential_EncryptUserSecret(params, pub, priv):
     #                     b = k * pub + v * g and 
     #                     pub = priv * g}
 
-    ## TODO
+    w0, w1, w2 = o.random() , o.random(), o.random()
+    Wap = w0*g
+    Wbp = w1*g + w0*pub
+    Wpubp = w2*g
+
+    c = to_challenge([g, pub, a, b, Wap, Wbp, Wpubp])
+
+    rk = (w0 - c*k)%o
+    rv = (w1 - c*v)%o
+    rpriv = (w2 - c*priv)%o
 
     # Return the fresh v, the encryption of v and the proof.
     proof = (c, rk, rv, rpriv)
@@ -142,12 +151,16 @@ def credential_Issuing(params, pub, ciphertext, issuer_params):
     # 2) Create a X1b as X1b == b * X1 == (b * x1) * h
     #     and x1b = (b * x1) mod o 
     
-    # TODO 1 & 2
+    b_ran = o.random()
+    u = b_ran*g
+    X1b = b_ran*X1
+    x1b = (b_ran*x1)%o
 
     # 3) The encrypted MAC is u, and an encrypted u_prime defined as 
     #    E( (b*x0) * g + (x1 * b * v) * g ) + E(0; r_prime)
     
-    # TODO 3
+    r_prime = o.random()
+    new_a, new_b = r_prime * g + x1b*a, r_prime * pub + x1b*b + x0*u 
 
     ciphertext = new_a, new_b
 
@@ -161,7 +174,26 @@ def credential_Issuing(params, pub, ciphertext, issuer_params):
     #       new_b = r_prime * pub + x1b * b + x0 * u 
     #       Cx0 = x0 * g + x0_bar * h }
 
-    ## TODO proof
+    wx1, wbeta, wX1b, wr_prime, wx0, wx0_bar = o.random() , o.random(), o.random(), o.random() , o.random(), o.random()
+
+    W0 = wx1*h
+    W1 = wbeta*X1
+    W2 = wX1b*h
+    W3 = wbeta*g
+    W4 = wr_prime*g + wX1b*a
+    W5 = wr_prime*pub + wX1b*b + wx0*u
+    W6 = wx0*g + wx0_bar*h
+
+    c = to_challenge([g, h, pub, a, b, X1, X1b, new_a, new_b, Cx0,
+                    W0,W1,W2,W3,W4,W5,W6])
+
+    rs = [None]*6
+    rs[0] = wx1 - c*x1
+    rs[1] = wbeta - c*b_ran
+    rs[2] = wX1b - c*x1b
+    rs[3] = wr_prime - c*r_prime
+    rs[4] = wx0 - c*x0
+    rs[5] = wx0_bar - c*x0_bar
 
     proof = (c, rs, X1b) # Where rs are multiple responses
 
@@ -225,15 +257,18 @@ def credential_show(params, issuer_pub_params, u, u_prime, v):
     # 1) First blind the credential (u, u_prime)
     #    using (alpha * u, alpha * u_prime) for a
     #    random alpha.
-    
-    # TODO 1
+    alpha = o.random()
+    blindu = alpha*u
+    blindu_prime = alpha*u_prime
 
     # 2) Implement the "Show" protocol (p.9) for a single attribute v.
     #    Cv is a commitment to v and Cup is C_{u'} in the paper. 
 
-    # TODO 2
+    z1, r = o.random() , o.random()
+    Cv = v*blindu + z1*h
+    Cup = blindu_prime + r*g
 
-    tag = (u, Cv, Cup)
+    tag = (blindu, Cv, Cup)
 
     # Proof or knowledge of the statement
     #
@@ -241,7 +276,15 @@ def credential_show(params, issuer_pub_params, u, u_prime, v):
     #           Cv = v *u + z1 * h and
     #           V  = r * (-g) + z1 * X1 }
 
-    ## TODO proof
+    wr, wz1, wv = o.random() , o.random(), o.random()
+    W0 = wv*blindu + wz1*h 
+    W1 = wr*(-g) + wz1*X1
+
+    c = to_challenge([g,h,W0,W1])
+
+    rr = wr - c*r
+    rz1 = wz1 - c*z1
+    rv = wv - c*v
 
     proof = (c, rr, rz1, rv)
     return tag, proof
@@ -258,9 +301,14 @@ def credential_show_verify(params, issuer_params, tag, proof):
 
     # Verify proof of correct credential showing
     (c, rr, rz1, rv) = proof
-    (u, Cv, Cup) = tag
+    (blindu, Cv, Cup) = tag
 
-    ## TODO
+    W0 = c*Cv + rv*blindu + rz1*h
+    #tracing (a lot) back the u and u_prime relation 
+    #helped to figure the last 2 components
+    W1 = rr * (-g) + rz1 * X1 - c*Cup + c*x1*Cv + c*x0*blindu  
+
+    c_prime = to_challenge([g, h, W0, W1])
 
     return c == c_prime
 
@@ -284,7 +332,32 @@ def credential_show_pseudonym(params, issuer_pub_params, u, u_prime, v, service_
     N = G.hash_to_point(service_name)
     pseudonym = v * N
 
-    ## TODO (use code from above and modify as necessary!)
+    alpha = o.random()
+    blindu = alpha*u
+    blindu_prime = alpha*u_prime
+
+
+    z1, r = o.random() , o.random()
+    Cv = v*blindu + z1*h
+    Cup = blindu_prime + r*g
+
+    tag = (blindu, Cv, Cup)
+
+    wr, wz1, wv = o.random() , o.random(), o.random()
+    W0 = wv*blindu + wz1*h 
+    W1 = wr*(-g) + wz1*X1
+    wp = o.random()
+    W2 = wp*N
+
+    c = to_challenge([g,h,W0,W1,W2])
+
+    rr = wr - c*r
+    rz1 = wz1 - c*z1
+    rv = wv - c*v
+    rp = wp - c*v
+
+    proof = (c, rr, rz1, rv,rp)
+
 
     return pseudonym, tag, proof
 
@@ -302,9 +375,17 @@ def credential_show_verify_pseudonym(params, issuer_params, pseudonym, tag, proo
     ## The EC point corresponding to the service
     N = G.hash_to_point(service_name)
 
-    ## Verify the correct Show protocol and the correctness of the pseudonym
+    # Verify proof of correct credential showing
+    (c, rr, rz1, rv, rp) = proof
+    (blindu, Cv, Cup) = tag
 
-    # TODO (use code from above and modify as necessary!)
+    W0 = c*Cv + rv*blindu + rz1*h
+    #tracing (a lot) back the u and u_prime relation 
+    #helped to figure the last 2 components
+    W1 = rr * (-g) + rz1 * X1 - c*Cup + c*x1*Cv + c*x0*blindu  
+    W2 = rp*N + c*pseudonym
+
+    c_prime = to_challenge([g, h, W0, W1,W2])
 
     return c == c_prime
 
@@ -317,4 +398,26 @@ def credential_show_verify_pseudonym(params, issuer_params, pseudonym, tag, proo
 # What would the credential represent, and what statements
 # would need to be shown to a verifier.
 
-""" Your answer here. """
+""" To implement a cash we need an issuer for example a bank.
+    We need a prover (let's say me), who will want to prove that he holds some 
+    cash (e.g. a coin certified by the bank). And last we have a 
+    verifier, the one I (as a prover) want to prove that I have 
+    a coin and I am giving it to him. 
+    As a property from cash, we want the verifier to be
+    unable to argue which coin was spent.
+    So the only thing I need to show to the verifier is that 
+    --I have the cash/coin--. That statement provides privacy
+    because neither the issuer or the verifier can argue who I am
+    (In fact I have a coin that's not connected to me).
+    Second, the fact that I send the coin to a verifier means that
+    I send him a bit-string. If I try to resend the same bit-string
+    in the future, everyone can detect it.
+
+    Long story short: 
+    We use what we did in task 2 as --Coin issuing from the bank for a user--.
+    (Now the user can verify that he has a valid coin)
+    Then we use what we did in task 3 as --I have the coin and I am giving it to you--.
+    (Now the verifier can verify that the user gave him a valid coin)
+    This way user's privacy is protected.
+    Seeing for a second time the bit-string from task 3 will indicate double spending.
+     """

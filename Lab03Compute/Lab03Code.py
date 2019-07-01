@@ -30,8 +30,8 @@ def setup():
 def keyGen(params):
    """ Generate a private / public key pair """
    (G, g, h, o) = params
-   
-   # ADD CODE HERE
+   priv = G.order().random()
+   pub  = priv * g
 
    return (priv, pub)
 
@@ -40,7 +40,11 @@ def encrypt(params, pub, m):
     if not -100 < m < 100:
         raise Exception("Message value to low or high.")
 
-   # ADD CODE HERE
+    c = []
+    k = params[0].order().random()
+    c += [k*params[1]]
+    c += [k*pub + m*params[2]]
+
 
     return c
 
@@ -74,8 +78,10 @@ def decrypt(params, priv, ciphertext):
     """ Decrypt a message using the private key """
     assert isCiphertext(params, ciphertext)
     a , b = ciphertext
-
-   # ADD CODE HERE
+    (G, g, h, o) = params
+    
+    inverse = (priv * a).pt_neg()
+    hm = b + inverse
 
     return logh(params, hm)
 
@@ -91,7 +97,14 @@ def add(params, pub, c1, c2):
     assert isCiphertext(params, c1)
     assert isCiphertext(params, c2)
 
-   # ADD CODE HERE
+    (G, g, h, o) = params
+    a1 , b1 = c1
+    a2 , b2 = c2
+
+    a3 = a1.pt_add(a2)
+    b3 = b1.pt_add(b2)
+
+    c3 = a3, b3
 
     return c3
 
@@ -100,8 +113,13 @@ def mul(params, pub, c1, alpha):
         product of the plaintext time alpha """
     assert isCiphertext(params, c1)
 
-   # ADD CODE HERE
+    (G, g, h, o) = params
+    a1 , b1 = c1
 
+    a3 = a1.pt_mul(alpha)
+    b3 = b1.pt_mul(alpha)
+
+    c3 = a3, b3
     return c3
 
 #####################################################
@@ -113,7 +131,11 @@ def groupKey(params, pubKeys=[]):
     """ Generate a group public key from a list of public keys """
     (G, g, h, o) = params
 
-   # ADD CODE HERE
+    pub = pubKeys[0]
+    for key in  pubKeys:
+        if pub == key:
+            continue;
+        pub += key
 
     return pub
 
@@ -122,7 +144,9 @@ def partialDecrypt(params, priv, ciphertext, final=False):
         If final is True, then return the plaintext. """
     assert isCiphertext(params, ciphertext)
     
-    # ADD CODE HERE
+    a1 , b = ciphertext
+    inverse = (priv * a1).pt_neg()
+    b1 = b + inverse
 
     if final:
         return logh(params, b1)
@@ -142,7 +166,9 @@ def corruptPubKey(params, priv, OtherPubKeys=[]):
         corrupt authority. """
     (G, g, h, o) = params
     
-   # ADD CODE HERE
+    pub = priv*g
+    for key in OtherPubKeys:
+        pub -= key
 
     return pub
 
@@ -157,7 +183,13 @@ def encode_vote(params, pub, vote):
         zero and the votes for one."""
     assert vote in [0, 1]
 
-   # ADD CODE HERE
+    (G, g, h, o) = params
+    if vote:
+        v0 = encrypt(params,pub,0)
+        v1 = encrypt(params,pub,1)
+    else:
+        v0 = encrypt(params,pub,1)
+        v1 = encrypt(params,pub,0)
 
     return (v0, v1)
 
@@ -165,8 +197,15 @@ def process_votes(params, pub, encrypted_votes):
     """ Given a list of encrypted votes tally them
         to sum votes for zeros and votes for ones. """
     assert isinstance(encrypted_votes, list)
-    
-   # ADD CODE HERE
+    tv0 = None
+    tv1 = None
+    for v0, v1 in encrypted_votes:
+        if tv0 is None:
+            tv0 = v0
+            tv1 = v1
+            continue;
+        tv0 = add(params,pub,tv0,v0)
+        tv1 = add(params,pub,tv1,v1)
 
     return tv0, tv1
 
@@ -217,7 +256,14 @@ def simulate_poll(votes):
 # What is the advantage of the adversary in guessing b given your implementation of 
 # Homomorphic addition? What are the security implications of this?
 
-""" Your Answer here """
+""" The Adversary can be 100% sure about b. Given the ciphertexts Ca Cb Cc the Adversary 
+	can compute the Homomorphic addition of Ca+Cb and Cb+Cc which are equal to the encryption 
+	of Pa plus Pb and Pb plus Pc respectively. One of the two additions will produce C and the 
+	Adversary will learn the value of b.
+
+	The security implications of this is that we should be very careful even of what ciphertexts
+	we send. An Adversary has more than one ways to find/guess a secret. Even if the ciphertexts
+	cannot be 'broken' individually, a compossision of them might reveal secret information to the attacker."""
 
 ###########################################################
 # TASK Q2 -- Answer questions regarding your implementation
@@ -228,4 +274,20 @@ def simulate_poll(votes):
 # that it yields an arbitrary result. Can those malicious actions 
 # be detected given your implementation?
 
-""" Your Answer here """
+""" a) A malicious user can implement encode_vote with  only two lines :
+	v0 = encrypt(params,pub,0); v1 = encrypt(params,pub,0) and in this implementation it will be like 
+	all users didn't vote at all. So when we count the votes it will be like no one has voted => the poll will
+	yield no results.
+
+	b) A malicious user can implement encode_vote to yield an arbitrary result by adding a line like :
+	vote = random[0-1] at the beginning of the function. In this way every vote will be randomly 0 or 1 and 
+	the result will be arbitrary.
+
+	Those malicious activities cannot be detected in my implementation.
+	First of all given that the malicious user controls the implementation on encode_vote, my implementation of
+	this function doesn't matter at all.
+	If we guess that I am the one to implement the process_votes and the malicious user implements the encode_vote,
+	there is a way to detect the malicious activity. I should add a check in my process_votes to determine that for 
+	every pair v0,v1 => v0 != v1. That solution works for (a) where all the votes are turned to 0. For (b) there is no
+	way to detect the malicious activity as long as the votes (as they are) are only processed by the function that the
+	malicious user implements."""
